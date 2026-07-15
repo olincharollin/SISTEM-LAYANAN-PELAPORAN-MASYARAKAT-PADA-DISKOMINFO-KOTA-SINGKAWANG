@@ -26,14 +26,17 @@ if(isset($_POST['kirim'])){
         $user_id   = $data_user['id'];
         $nama_user = $data_user['nama']; // Ambil nama sesuai pemilik email itu
 
-        // ✅ BUAT TOKEN
-        $token = md5(uniqid(rand(), true));
+        // ✅ BUAT TOKEN (aman: random kriptografis, bukan md5(uniqid(rand())))
+        $token = bin2hex(random_bytes(32));
         $waktu_sekarang = date("Y-m-d H:i:s");
         $kadaluarsa = date("Y-m-d H:i:s", strtotime("+1 hours"));
 
-        mysqli_query($conn, "DELETE FROM password_resets WHERE user_id = '$user_id'");
-        mysqli_query($conn, "INSERT INTO password_resets (user_id, token, created_at, expired_at) 
-                              VALUES ('$user_id', '$token', '$waktu_sekarang', '$kadaluarsa')");
+        $del = mysqli_prepare($conn, "DELETE FROM password_resets WHERE user_id = ?");
+        mysqli_stmt_bind_param($del, "i", $user_id);
+        mysqli_stmt_execute($del);
+        $ins = mysqli_prepare($conn, "INSERT INTO password_resets (user_id, token, created_at, expired_at) VALUES (?, ?, ?, ?)");
+        mysqli_stmt_bind_param($ins, "isss", $user_id, $token, $waktu_sekarang, $kadaluarsa);
+        mysqli_stmt_execute($ins);
 
         // 🔔 KIRIM EMAIL
         $mail = new PHPMailer(true);
