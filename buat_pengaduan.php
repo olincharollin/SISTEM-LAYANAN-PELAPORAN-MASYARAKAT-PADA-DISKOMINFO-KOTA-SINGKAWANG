@@ -118,8 +118,9 @@ if (isset($_POST['kirim'])) {
                 $success = "Pengaduan berhasil dikirim!";
 
                 // ✅ DIPERBAIKI: Hapus ip_address karena kolom tidak ada
-                mysqli_query($conn, "INSERT INTO audit_log (user_id, aktivitas) 
-                                    VALUES ('$user_id','Membuat pengaduan baru')");
+                $audit = mysqli_prepare($conn, "INSERT INTO audit_log (user_id, aktivitas) VALUES (?, 'Membuat pengaduan baru')");
+                mysqli_stmt_bind_param($audit, "i", $user_id);
+                mysqli_stmt_execute($audit);
 
                 $_POST = [];
 

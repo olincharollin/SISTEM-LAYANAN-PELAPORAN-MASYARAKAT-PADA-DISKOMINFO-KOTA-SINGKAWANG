@@ -12,21 +12,25 @@ function getIP(){
 
 if(isset($_POST['login'])){
 
-    $username = mysqli_real_escape_string($conn,$_POST['username']);
+    $username = $_POST['username'];
     $password = md5($_POST['password']); // Tetap pakai md5 sesuai sistem kamu
     $ip = getIP();
 
-    $query = mysqli_query($conn,"SELECT * FROM users WHERE username='$username' AND password='$password'");
+    $stmt = mysqli_prepare($conn, "SELECT id, nama, email, username, role, status FROM users WHERE username = ? AND password = ?");
+    mysqli_stmt_bind_param($stmt, "ss", $username, $password);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
 
-    if(mysqli_num_rows($query) > 0){
+    if(mysqli_num_rows($result) > 0){
 
-        $data = mysqli_fetch_assoc($query);
+        $data = mysqli_fetch_assoc($result);
 
         // ✅ CEK PENTING: APAKAH AKUN DIBLOKIR?
         if($data['status'] == 'blokir'){
             // Catat ke log sebagai gagal
-            mysqli_query($conn,"INSERT INTO login_history (user_id, username, status_login, ip_address)
-                                VALUES (NULL, '$username', 'Gagal - Akun Diblokir', '$ip')");
+            $ins = mysqli_prepare($conn, "INSERT INTO login_history (user_id, username, status_login, ip_address) VALUES (NULL, ?, 'Gagal - Akun Diblokir', ?)");
+            mysqli_stmt_bind_param($ins, "ss", $username, $ip);
+            mysqli_stmt_execute($ins);
             $error = "❌ Akun Anda telah diblokir. Silakan hubungi Admin!";
         } else {
             // ✅ AKUN AKTIF: BUAT SESI
@@ -37,12 +41,14 @@ if(isset($_POST['login'])){
             $_SESSION['role'] = $data['role'];
 
             // ✅ PERBAIKAN LOG: Tadi salah tulis 'Gagal', sekarang jadi 'Berhasil' & lengkapi data
-            mysqli_query($conn,"INSERT INTO login_history (user_id, username, status_login, ip_address)
-                                VALUES ('$data[id]', '$username', 'Berhasil', '$ip')");
-                                
+            $ins1 = mysqli_prepare($conn, "INSERT INTO login_history (user_id, username, status_login, ip_address) VALUES (?, ?, 'Berhasil', ?)");
+            mysqli_stmt_bind_param($ins1, "iss", $data['id'], $username, $ip);
+            mysqli_stmt_execute($ins1);
+
             // ✅ SIMPAN KE AUDIT LOG (SESUAI STRUKTUR KAMU)
-            mysqli_query($conn,"INSERT INTO audit_log (user_id, aktivitas, created_at)
-                                VALUES ('$data[id]', 'Berhasil masuk ke sistem', NOW())");
+            $ins2 = mysqli_prepare($conn, "INSERT INTO audit_log (user_id, aktivitas, created_at) VALUES (?, 'Berhasil masuk ke sistem', NOW())");
+            mysqli_stmt_bind_param($ins2, "i", $data['id']);
+            mysqli_stmt_execute($ins2);
 
             // ✅ ARAHKAN KE DASHBOARD
             if($data['role'] == "admin"){
@@ -55,8 +61,9 @@ if(isset($_POST['login'])){
 
     } else {
         // ✅ LOGIN GAGAL (Salah Username/Password)
-        mysqli_query($conn,"INSERT INTO login_history (user_id, username, status_login, ip_address)
-                            VALUES (NULL, '$username', 'Gagal - Username/Password Salah', '$ip')");
+        $ins3 = mysqli_prepare($conn, "INSERT INTO login_history (user_id, username, status_login, ip_address) VALUES (NULL, ?, 'Gagal - Username/Password Salah', ?)");
+        mysqli_stmt_bind_param($ins3, "ss", $username, $ip);
+        mysqli_stmt_execute($ins3);
 
         $error = "❌ Username atau Password salah!";
     }

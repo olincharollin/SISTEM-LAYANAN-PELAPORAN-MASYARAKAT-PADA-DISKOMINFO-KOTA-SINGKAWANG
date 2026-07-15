@@ -53,11 +53,15 @@ if(isset($_POST['ubah']) && $tampil_form){
         // Enkripsi pakai MD5
         $pass_baru_md5 = md5($pass_baru);
 
-        // Update ke database
-        mysqli_query($conn, "UPDATE users SET password = '$pass_baru_md5' WHERE id = '$user_id_reset'");
-        
+        // Update ke database (prepared statement)
+        $upd = mysqli_prepare($conn, "UPDATE users SET password = ? WHERE id = ?");
+        mysqli_stmt_bind_param($upd, "si", $pass_baru_md5, $user_id_reset);
+        mysqli_stmt_execute($upd);
+
         // Hapus token agar tidak bisa dipakai lagi
-        mysqli_query($conn, "DELETE FROM password_resets WHERE user_id = '$user_id_reset'");
+        $del = mysqli_prepare($conn, "DELETE FROM password_resets WHERE user_id = ?");
+        mysqli_stmt_bind_param($del, "i", $user_id_reset);
+        mysqli_stmt_execute($del);
 
         // Catat ke audit log
         mysqli_query($conn,"INSERT INTO audit_log (user_id, aktivitas, created_at)
